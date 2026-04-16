@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>eCPR XML Viewer — California DIR</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f4f8; color: #1a202c; min-height: 100vh; }
+  header { background: #1a3a5c; color: white; padding: 18px 32px; display: flex; align-items: center; gap: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+  header h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: 0.5px; }
+  header span { font-size: 0.85rem; opacity: 0.75; }
+  .toolbar { background: #fff; border-bottom: 1px solid #dde; padding: 12px 32px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .toolbar label { font-size: 0.85rem; font-weight: 600; color: #4a5568; }
+  .toolbar button { padding: 7px 18px; border-radius: 6px; border: none; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: background 0.15s; }
+  .btn-primary { background: #1a3a5c; color: white; }
+  .btn-primary:hover { background: #2a4f7c; }
+  .btn-secondary { background: #e2e8f0; color: #2d3748; }
+  .btn-secondary:hover { background: #cbd5e0; }
+  .btn-sample { background: #276749; color: white; }
+  .btn-sample:hover { background: #38a169; }
+  #fileInput { display: none; }
+  .container { max-width: 1200px; margin: 28px auto; padding: 0 24px; }
+  .input-area { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 24px; }
+  .input-area h2 { font-size: 0.95rem; font-weight: 700; color: #4a5568; margin-bottom: 10px; }
+  #xmlInput { width: 100%; height: 140px; font-family: 'Consolas', monospace; font-size: 0.78rem; border: 1px solid #cbd5e0; border-radius: 6px; padding: 10px; resize: vertical; color: #2d3748; }
+  .error { background: #fff5f5; border: 1px solid #fc8181; color: #c53030; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 0.875rem; }
+  .section-card { background: white; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 24px; overflow: hidden; }
+  .section-header { padding: 14px 20px; font-size: 1rem; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+  .section-header.contractor { background: #ebf4ff; color: #1a3a5c; border-bottom: 2px solid #90cdf4; }
+  .section-header.project { background: #f0fff4; color: #1a4731; border-bottom: 2px solid #9ae6b4; }
+  .section-header.payroll { background: #fffaf0; color: #744210; border-bottom: 2px solid #f6ad55; }
+  .badge { font-size: 0.7rem; padding: 2px 8px; border-radius: 12px; font-weight: 700; text-transform: uppercase; }
+  .badge-contractor { background: #bee3f8; color: #1a3a5c; }
+  .badge-project { background: #c6f6d5; color: #1a4731; }
+  .badge-payroll { background: #feebc8; color: #744210; }
+  .kv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0; padding: 16px 20px; }
+  .kv-item { padding: 8px 12px; border-radius: 6px; }
+  .kv-item:nth-child(odd) { background: #f7fafc; }
+  .kv-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #718096; letter-spacing: 0.5px; margin-bottom: 2px; }
+  .kv-value { font-size: 0.92rem; color: #1a202c; font-weight: 500; }
+  .kv-value.empty { color: #a0aec0; font-style: italic; }
+  .sub-section { border-top: 1px solid #edf2f7; }
+  .sub-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; color: #718096; padding: 10px 20px 4px; letter-spacing: 0.5px; }
+  .employee-list { padding: 12px 20px; display: flex; flex-direction: column; gap: 16px; }
+  .employee-card { border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+  .employee-name-bar { background: #f7f0ff; padding: 10px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #e9d8fd; }
+  .employee-name-bar .emp-name { font-weight: 700; font-size: 1rem; color: #44337a; }
+  .employee-name-bar .emp-ssn { font-size: 0.8rem; color: #805ad5; background: #e9d8fd; padding: 2px 8px; border-radius: 10px; }
+  .employee-name-bar .emp-class { font-size: 0.8rem; color: #6b46c1; }
+  .emp-body { padding: 12px 16px; }
+  .days-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin: 8px 0 12px; }
+  .days-table th { background: #4a5568; color: white; padding: 6px 8px; text-align: center; font-size: 0.72rem; }
+  .days-table td { padding: 6px 8px; text-align: center; border-bottom: 1px solid #e2e8f0; }
+  .days-table tr:nth-child(even) td { background: #f7fafc; }
+  .days-table .zero { color: #cbd5e0; }
+  .totals-row td { font-weight: 700; background: #ebf4ff !important; color: #2b6cb0; }
+  .pay-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 10px 0; }
+  .pay-box { background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px; text-align: center; }
+  .pay-box .pay-label { font-size: 0.68rem; color: #718096; font-weight: 700; text-transform: uppercase; }
+  .pay-box .pay-val { font-size: 1rem; font-weight: 700; color: #2d3748; }
+  .gross-box { background: #f0fff4; border-color: #9ae6b4; }
+  .gross-box .pay-val { color: #276749; }
+  .net-box { background: #fffaf0; border-color: #f6ad55; }
+  .net-box .pay-val { color: #c05621; }
+  .deductions-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 6px; margin-top: 8px; }
+  .ded-item { font-size: 0.8rem; display: flex; justify-content: space-between; align-items: center; background: #f7fafc; border-radius: 4px; padding: 4px 8px; }
+  .ded-label { color: #718096; }
+  .ded-val { font-weight: 600; color: #2d3748; }
+  .ded-val.zero { color: #cbd5e0; }
+  .notes-box { background: #fffbeb; border: 1px solid #f6e05e; border-radius: 6px; padding: 8px 12px; font-size: 0.82rem; color: #744210; margin-top: 8px; }
+  .notes-box strong { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: #b7791f; }
+  .np-banner { background: #fff5f5; border: 2px solid #fc8181; border-radius: 8px; padding: 16px 20px; text-align: center; font-weight: 700; color: #c53030; font-size: 1.1rem; margin: 12px 20px; }
+  .filename-hint { background: #f0fff4; border: 1px solid #9ae6b4; border-radius: 6px; padding: 8px 14px; font-size: 0.82rem; color: #276749; margin: 12px 20px 0; }
+  .filename-hint strong { font-family: monospace; }
+  .empty-state { text-align: center; padding: 60px 20px; color: #a0aec0; }
+  .empty-state h3 { font-size: 1.2rem; margin-bottom: 8px; }
+  #viewer { display: none; }
+  .emp-section-title { font-size: 0.73rem; font-weight: 700; text-transform: uppercase; color: #805ad5; margin: 10px 0 4px; letter-spacing: 0.5px; }
+  .check-info { font-size: 0.82rem; color: #4a5568; margin-top: 6px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>&#128196; eCPR XML Viewer</h1>
+    <span>California Department of Industrial Relations — Certified Payroll Record</span>
+  </div>
+</header>
+<div class="toolbar">
+  <label>Load XML:</label>
+  <button class="btn-sample" onclick="loadSample()">&#127381; Load Sample XML</button>
+  <button class="btn-primary" onclick="document.getElementById('fileInput').click()">&#128194; Open XML File</button>
+  <input type="file" id="fileInput" accept=".xml" onchange="loadFile(event)">
+  <button class="btn-primary" onclick="parseAndRender()">&#9654; Parse &amp; View</button>
+  <button class="btn-secondary" onclick="clearAll()">&#10005; Clear</button>
+</div>
+<div class="container">
+  <div class="input-area">
+    <h2>Paste or edit XML below, then click Parse &amp; View:</h2>
+    <textarea id="xmlInput" placeholder="Paste your eCPR XML here..."></textarea>
+  </div>
+  <div id="errorBox" style="display:none"></div>
+  <div id="viewer"></div>
+  <div id="emptyState" class="empty-state">
+    <h3>No XML loaded yet</h3>
+    <p>Paste XML in the box above, load the sample, or open a file &mdash; then click <strong>Parse &amp; View</strong>.</p>
+  </div>
+</div>
+<script>
+const CPR_NS = 'http://www.dir.ca.gov/dlse/CPR-Prod-Test/CPR.xsd';
+const SAMPLE_URL = 'https://www.dir.ca.gov/Public-Works/CPR/CPRSample.xml';
+
+function g(el, tag) {
+  const found = el.getElementsByTagNameNS(CPR_NS, tag);
+  if (found.length > 0) return found[0];
+  const fb = el.getElementsByTagName('CPR:' + tag);
+  return fb.length > 0 ? fb[0] : null;
+}
+function gAll(el, tag) {
+  const found = el.getElementsByTagNameNS(CPR_NS, tag);
+  if (found.length > 0) return Array.from(found);
+  return Array.from(el.getElementsByTagName('CPR:' + tag));
+}
+function val(el, tag, fb) {
+  const node = g(el, tag);
+  if (!node) return fb !== undefined ? fb : '';
+  return node.textContent.trim();
+}
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function kv(label, value) {
+  const isEmpty = value === '' || value === null || value === undefined;
+  return '<div class="kv-item"><div class="kv-label">' + label + '</div>' +
+         '<div class="kv-value' + (isEmpty?' empty':'') + '">' + (isEmpty ? '&mdash;' : escHtml(String(value))) + '</div></div>';
+}
+function fmtNum(v) {
+  if (!v || parseFloat(v) === 0) return '<span class="zero">0.00</span>';
+  return isNaN(parseFloat(v)) ? escHtml(v) : parseFloat(v).toFixed(2);
+}
+
+function parseAndRender() {
+  const xml = document.getElementById('xmlInput').value.trim();
+  if (!xml) { showError('Please paste XML first.'); return; }
+  let doc;
+  try {
+    const parser = new DOMParser();
+    doc = parser.parseFromString(xml, 'application/xml');
+    const parseErr = doc.querySelector('parsererror');
+    if (parseErr) throw new Error(parseErr.textContent.substring(0, 300));
+  } catch(e) { showError('XML Parse Error: ' + e.message); return; }
+  hideError();
+  renderViewer(doc);
+}
+
+function renderViewer(doc) {
+  const root = doc.documentElement;
+  const ci = g(root, 'contractorInfo');
+  const pi = g(root, 'projectInfo');
+  const payI = g(root, 'payrollInfo');
+  let html = '';
+
+  // CONTRACTOR
+  if (ci) {
+    const addr = g(ci, 'contractorAddress');
+    const lic = g(ci, 'contractorLicense');
+    const addrStr = addr ? [val(addr,'street'),val(addr,'city'),val(addr,'state'),val(addr,'zip')].filter(Boolean).join(', ') : '';
+    html += '<div class="section-card">';
+    html += '<div class="section-header contractor">&#127968; Contractor Information <span class="badge badge-contractor">contractorInfo</span></div>';
+    html += '<div class="kv-grid">';
+    html += kv('Contractor Name', val(ci,'contractorName'));
+    html += kv('FEIN', val(ci,'contractorFEIN'));
+    html += kv('PWCR Number', val(ci,'contractorPWCR'));
+    html += kv('Insurance #', val(ci,'insuranceNum'));
+    html += kv('Email', val(ci,'contractorEmail'));
+    html += kv('Address', addrStr);
+    if (lic) { html += kv('License Type', val(lic,'licenseType')); html += kv('License Number', val(lic,'licenseNum')); }
+    html += '</div></div>';
+  }
+
+  // PROJECT
+  if (pi) {
+    const weekEnd = val(payI || root, 'forWeekEnding');
+    const fein = val(ci || root, 'contractorFEIN');
+    const projId = val(pi, 'projectID');
+    let filename = '';
+    if (fein.length >= 4 && projId && weekEnd) {
+      const p = weekEnd.split('-');
+      if (p.length === 3) filename = fein.slice(-4) + '_' + projId + '_' + p[1] + p[2] + p[0].slice(2) + '.xml';
+    }
+    html += '<div class="section-card">';
+    html += '<div class="section-header project">&#127759; Project Information <span class="badge badge-project">projectInfo</span></div>';
+    html += '<div class="kv-grid">';
+    html += kv('Project ID', val(pi,'projectID'));
+    html += kv('Contract Agency', val(pi,'contractAgency'));
+    html += kv('Awarding Body', val(pi,'awardingBody') || '(empty)');
+    html += kv('Contract Agency ID', val(pi,'contractAgencyID') || '(empty — placeholder)');
+    html += kv('Project Name', val(pi,'projectName') || '(empty)');
+    html += kv('Awarding Body ID', val(pi,'awardingBodyID') || '(empty)');
+    html += kv('Project Num', val(pi,'projectNum') || '(empty)');
+    html += kv('Contract ID', val(pi,'contractID') || '(empty)');
+    const loc = g(pi,'projectLocation');
+    if (loc) {
+      html += kv('Location', [val(loc,'street'),val(loc,'city'),val(loc,'county'),val(loc,'state'),val(loc,'zip')].filter(Boolean).join(', ') || '(empty)');
+    }
+    html += '</div>';
+    if (filename) html += '<div class="filename-hint">&#128196; Suggested filename: <strong>' + escHtml(filename) + '</strong></div>';
+    html += '<div style="height:12px"></div></div>';
+  }
+
+  // PAYROLL
+  if (payI) {
+    const isNP = val(payI,'statementOfNP') === 'true';
+    html += '<div class="section-card">';
+    html += '<div class="section-header payroll">&#128197; Payroll Information <span class="badge badge-payroll">payrollInfo</span></div>';
+    html += '<div class="kv-grid">';
+    html += kv('Week Ending', val(payI,'forWeekEnding'));
+    html += kv('Statement of Non-Performance', isNP ? '&#9888; YES — Non-Performance Week' : 'No — Active Payroll');
+    html += kv('Payroll #', val(payI,'payrollNum') || '(auto-assigned by system)');
+    html += kv('Amendment #', val(payI,'amendmentNum') || '(auto-assigned by system)');
+    html += '</div>';
+
+    if (isNP) {
+      html += '<div class="np-banner">&#9888; Statement of Non-Performance — No workers on payroll this week</div>';
+    } else {
+      const emps = gAll(payI, 'employee');
+      html += '<div class="sub-section"><div class="sub-title">Employees (' + emps.length + ')</div><div class="employee-list">';
+      emps.forEach(function(emp) {
+        const nameEl = g(emp,'name');
+        const name = nameEl ? nameEl.textContent.trim() : '';
+        const ssn = val(emp,'ssn');
+        const ssnMasked = ssn ? 'XXX-XX-' + ssn.slice(5) : '';
+        const wc = val(emp,'workClass');
+        const addr = g(emp,'address');
+        const addrStr = addr ? [val(addr,'street'),val(addr,'city'),val(addr,'state'),val(addr,'zip')].filter(Boolean).join(', ') : '';
+        const payroll = g(emp,'payroll');
+
+        html += '<div class="employee-card">';
+        html += '<div class="employee-name-bar"><span class="emp-name">' + escHtml(name) + '</span>';
+        html += '<span class="emp-ssn">SSN: ' + escHtml(ssnMasked) + '</span>';
+        html += '<span class="emp-class">' + escHtml(wc) + '</span></div>';
+        html += '<div class="emp-body">';
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">' +
+                '<div>' + kv('Address', addrStr) + '</div>' +
+                '<div>' + kv('Withholding Exemptions', val(emp,'numWithholdingExemp')) + '</div></div>';
+
+        if (payroll) {
+          const hrsEl = g(payroll,'hrsWorkedEachDay');
+          const days = hrsEl ? gAll(hrsEl,'day') : [];
+          if (days.length) {
+            html += '<div class="emp-section-title">Hours Worked Each Day</div>';
+            html += '<table class="days-table"><thead><tr><th>Day</th><th>Date</th><th>Straight Time</th><th>Overtime</th><th>Double Time</th></tr></thead><tbody>';
+            days.forEach(function(day) {
+              const id = day.getAttribute('id');
+              const st = val(day,'straightTime'), ot = val(day,'overtime'), dt = val(day,'doubletime');
+              html += '<tr><td><strong>#'+id+'</strong></td><td>'+escHtml(val(day,'date'))+'</td>';
+              html += '<td>'+fmtNum(st)+'</td><td>'+fmtNum(ot)+'</td><td>'+fmtNum(dt)+'</td></tr>';
+            });
+            const totEl = g(payroll,'totHrs');
+            if (totEl) {
+              html += '<tr class="totals-row"><td colspan="2"><strong>TOTALS</strong></td>';
+              html += '<td>'+fmtNum(val(totEl,'totHrsStraightTime'))+'</td>';
+              html += '<td>'+fmtNum(val(totEl,'totHrsOvertime'))+'</td>';
+              html += '<td>'+fmtNum(val(totEl,'totHrsDoubletime'))+'</td></tr>';
+            }
+            html += '</tbody></table>';
+          }
+
+          const rateEl = g(payroll,'hrlyPayRate');
+          if (rateEl) {
+            html += '<div class="emp-section-title">Hourly Pay Rates</div><div class="pay-grid">';
+            html += '<div class="pay-box"><div class="pay-label">Straight Time</div><div class="pay-val">$'+fmtNum(val(rateEl,'hrlyPayRateStraightTime'))+'</div></div>';
+            html += '<div class="pay-box"><div class="pay-label">Overtime</div><div class="pay-val">$'+fmtNum(val(rateEl,'hrlyPayRateOvertime'))+'</div></div>';
+            html += '<div class="pay-box"><div class="pay-label">Double Time</div><div class="pay-val">$'+fmtNum(val(rateEl,'hrlyPayRateDoubletime'))+'</div></div>';
+            html += '</div>';
+          }
+
+          const grossEl = g(payroll,'grossAmountEarned');
+          const netWage = val(payroll,'netWagePaidWeek');
+          const checkNum = val(payroll,'checkNum');
+          if (grossEl) {
+            html += '<div class="emp-section-title">Earnings Summary</div><div class="pay-grid">';
+            html += '<div class="pay-box gross-box"><div class="pay-label">Gross &mdash; This Project</div><div class="pay-val">$'+fmtNum(val(grossEl,'thisProject'))+'</div></div>';
+            html += '<div class="pay-box gross-box"><div class="pay-label">Gross &mdash; All Work</div><div class="pay-val">$'+fmtNum(val(grossEl,'allWork'))+'</div></div>';
+            html += '<div class="pay-box net-box"><div class="pay-label">Net Wage Paid</div><div class="pay-val">$'+fmtNum(netWage)+'</div></div>';
+            html += '</div>';
+            if (checkNum) html += '<div class="check-info">&#128181; Check #: <strong>' + escHtml(checkNum) + '</strong></div>';
+          }
+
+          const dedEl = g(payroll,'deductionsContribPay');
+          if (dedEl) {
+            html += '<div class="emp-section-title">Deductions, Contributions &amp; Payments</div><div class="deductions-grid">';
+            [['fedTax','Federal Tax'],['FICA','FICA'],['stateTax','State Tax'],['SDI','SDI'],
+             ['vacationHoliday','Vacation/Holiday'],['healthWelfare','Health &amp; Welfare'],
+             ['pension','Pension'],['training','Training'],['fundAdmin','Fund Admin'],
+             ['dues','Dues'],['travelSubs','Travel/Subs'],['savings','Savings'],
+             ['other','Other'],['total','Total']
+            ].forEach(function(f) {
+              const v = val(dedEl, f[0]);
+              const isZero = !v || parseFloat(v) === 0;
+              html += '<div class="ded-item"><span class="ded-label">'+f[1]+'</span><span class="ded-val'+(isZero?' zero':'')+'">$'+fmtNum(v)+'</span></div>';
+            });
+            html += '</div>';
+            const notes = val(dedEl,'notes');
+            if (notes) html += '<div class="notes-box"><strong>Notes:</strong> ' + escHtml(notes) + '</div>';
+          }
+        }
+        html += '</div></div>';
+      });
+      html += '</div></div>';
+    }
+    html += '</div>';
+  }
+
+  const viewer = document.getElementById('viewer');
+  viewer.innerHTML = html;
+  viewer.style.display = 'block';
+  document.getElementById('emptyState').style.display = 'none';
+}
+
+function showError(msg) {
+  const box = document.getElementById('errorBox');
+  box.innerHTML = '<div class="error">&#9888; ' + escHtml(msg) + '</div>';
+  box.style.display = 'block';
+}
+function hideError() { document.getElementById('errorBox').style.display = 'none'; }
+
+function loadSample() {
+  fetch(SAMPLE_URL)
+    .then(function(r) { return r.text(); })
+    .then(function(t) {
+      document.getElementById('xmlInput').value = t;
+      parseAndRender();
+    })
+    .catch(function(e) {
+      showError('Could not fetch sample XML from DIR. Please paste your XML manually. Error: ' + e.message);
+    });
+}
+
+function loadFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    document.getElementById('xmlInput').value = ev.target.result;
+    parseAndRender();
+  };
+  reader.readAsText(file);
+}
+
+function clearAll() {
+  document.getElementById('xmlInput').value = '';
+  document.getElementById('viewer').style.display = 'none';
+  document.getElementById('viewer').innerHTML = '';
+  document.getElementById('emptyState').style.display = 'block';
+  hideError();
+}
+</script>
+</body>
+</html>
